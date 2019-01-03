@@ -1,4 +1,6 @@
 $(function () {
+    initCss();
+
     var delParent;
     var defaults = {
         fileType : ["jpg","png","bmp","jpeg"],  // 上传文件的类型
@@ -144,6 +146,8 @@ $(function () {
                 //input内容清空
                 $(this).val("");
 
+                initCss();
+
                 console.log(upImgArr);
 
             };
@@ -175,6 +179,8 @@ $(function () {
                 upImgArr.splice(i, 1);
             }
         }
+
+        initCss();
 
     });
 
@@ -227,6 +233,27 @@ $(function () {
             ia[i] = bytes.charCodeAt(i);
         }
         return new Blob([ab],{type : 'image/jpeg'});
+    }
+
+    function initCss() {
+        var consultImg = $('.consult-img');
+        var consultImgWidth = ((consultImg.innerWidth())-20)/4 + 'px';
+
+        $('.upimg-div .up-section').css('width', consultImgWidth).css('height', consultImgWidth);
+        $('.img-box .upimg-div .z_file').css('width', consultImgWidth).css('height', consultImgWidth);
+        $('.z_file .add-img').css('width', consultImgWidth).css('height', consultImgWidth);
+        $('.up-img').css('width', consultImgWidth).css('height', consultImgWidth);
+        $('.z_photo .z_file').css('width', consultImgWidth).css('height', consultImgWidth);
+
+        var upSection = $('.up-section');
+        var upSectionLength = upSection.length;
+        console.log(upSectionLength);
+
+        if(upSectionLength === 0 || upSectionLength === 4){
+            $('.z_photo .z_file').css('margin-left', '2px');
+        }else{
+            $('.z_photo .z_file').css('margin-left', '-8px');
+        }
     }
 
 });
