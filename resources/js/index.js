@@ -256,4 +256,38 @@ $(function () {
         }
     }
 
+    //上传图片方法
+    function submitImg() {
+        var uploadImg = [];
+
+        for(var i=0;i<(upImgArr).length;i++){
+            if(upImgArr[i] !== undefined){
+                uploadImg.push(upImgArr[i]);
+            }
+        }
+
+        //创建formData对象
+        var fd = new FormData();
+
+        for(var x=0;x<(uploadImg).length;x++){
+            fd.append('name', uploadImg[x], x + '.jpg');
+        }
+
+        $.ajax({
+            async: false,
+            method: 'post',
+            processData : false,
+            contentType: false,
+            url: 'http://192.168.1.131:8080/rest/consult/mediaFiles/wx/',
+            data: fd,
+            success:function (data) {
+                console.log(data);
+
+            },
+            error:function (err) {
+                console.log(err);
+            }
+        });
+    }
+
 });
