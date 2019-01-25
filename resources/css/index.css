@@ -137,11 +137,18 @@
     border-right: 1px solid #D1D1D1;
 }
 
+.up-section .close-upimg {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    display: inline;
+    z-index: 10;
+}
 
+.up-section:hover {
+    border: none;
+}
 
-
-
-
-
-
-
+.up-section .up-span {
+    background: transparent;
+}

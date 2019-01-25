@@ -1,6 +1,8 @@
 $(function () {
     initCss();
 
+    var vConsole = new VConsole();
+
     var delParent;
     var defaults = {
         fileType : ["jpg","png","bmp","jpeg"],  // 上传文件的类型
@@ -10,12 +12,24 @@ $(function () {
     //图片结果集
     var upImgArr = [];
 
-    //图片base64结果集
-    //var upImgBaseArr = [];
+    var FILE = $(".file");
+
+    //当为图片预览时，防止点击触发上传操作
+    FILE.click(function () {
+        var __MUI_PREVIEWIMAGE = $('#__MUI_PREVIEWIMAGE');
+        var style__MUI_PREVIEWIMAGE = __MUI_PREVIEWIMAGE.attr('style');
+
+        if(style__MUI_PREVIEWIMAGE === 'display: block;'){
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+    });
 
     /*点击图片的文本框*/
-    $(".file").change(function(){
+    FILE.change(function(){
         var idFile = $(this).attr("id");
+
         var file = document.getElementById(idFile);
 
         //存放图片的父亲元素
@@ -37,16 +51,27 @@ $(function () {
             var date = new Date().getTime();
 
             fileList = validateUp(fileList);
+
+            //未通过图片判断停止继续
+            if(fileList.length === 0){
+                return false;
+            }
+
             fileList[0].date = date;
 
             /**************************************************************************************************/
             // 压缩图片需要的一些元素和对象
             var reader = new FileReader();
+
             var img = new Image();
 
             // 缩放图片需要的canvas
             var canvas = document.createElement('canvas');
+
             var context = canvas.getContext('2d');
+
+            //图片大小
+            var fileSize = fileList[0].size;
 
             reader.readAsDataURL(fileList[0]);
 
@@ -56,99 +81,142 @@ $(function () {
             };
 
             img.onload = function(e) {
-                // 图片原始尺寸
-                var originWidth = img.width;
-                var originHeight = img.height;
 
-                // 最大尺寸限制
-                var maxWidth = 400;
-                var maxHeight = 400;
+                EXIF.getData(img, function() {
 
-                // 目标尺寸
-                var targetWidth = originWidth;
-                var targetHeight = originHeight;
+                    var Orientation = EXIF.getTag(this, 'Orientation');
+                    console.log('方向:' + Orientation);
+                    console.log('大小:' + fileSize/(1024*1024));
 
-                // 图片尺寸超过400x400的限制
-                if (originWidth > maxWidth || originHeight > maxHeight) {
-                    if (originWidth / originHeight > maxWidth / maxHeight) {
-                        // 更宽，按照宽度限定尺寸
-                        targetWidth = maxWidth;
-                        targetHeight = Math.round(maxWidth * (originHeight / originWidth));
-                    } else {
-                        targetHeight = maxHeight;
-                        targetWidth = Math.round(maxHeight * (originWidth / originHeight));
+                    var wph = (img.height*1)/(img.width*1);
+                    var hpw = wph.toFixed(2)*1;
+                    var square = 700;   //定义画布的大小，也就是图片压缩之后的像素
+                    var imageWidth = 0;    //压缩图片的大小
+                    var imageHeight = 0;
+                    var offsetX = 0;
+                    var offsetY = 0;
+                    var hsquare = Math.ceil(square*hpw);
+
+                    var u = navigator.userAgent;
+                    var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
+
+                    if(isiOS){
+                        if(Orientation === 6){
+                            canvas.width = hsquare;
+                            canvas.height = square;
+                            context.clearRect(0, 0, hsquare, square);
+                        }else if(Orientation === 8){
+                            canvas.width = hsquare;
+                            canvas.height = square;
+                        }else{
+                            canvas.width = square;
+                            canvas.height = hsquare;
+                            context.clearRect(0, 0, square, hsquare);
+                        }
+                    }else{
+                        canvas.width = square;
+                        canvas.height = hsquare;
+                        context.clearRect(0, 0, square, hsquare);
                     }
-                }
 
-                // canvas对图片进行缩放
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
+                    if(isiOS){
+                        var degree;
+                        switch(Orientation){
+                            case 3:
+                                degree = 180;
+                                imageWidth = -square;
+                                imageHeight = -hsquare;
+                                break;
+                            case 6:
+                                degree = 90;
+                                imageWidth = square;
+                                imageHeight = -hsquare;
+                                break;
+                            case 8:
+                                degree = 270;
+                                imageWidth = -square;
+                                imageHeight = hsquare;
+                                break;
+                            default:
+                                degree = 0;
+                                imageWidth = square;
+                                imageHeight = hsquare;
+                        }
+                        context.rotate(degree * Math.PI / 180.0);
+                    }else{
+                        if (img.width > img.height) {
+                            imageWidth = square;
+                            imageHeight = hsquare;
+                            offsetX = - Math.round((imageWidth - square) / 2);
+                        } else {
+                            imageHeight = hsquare;
+                            imageWidth = square;
+                            offsetY = - Math.round((imageHeight - hsquare) / 2);
+                        }
+                    }
+                    context.drawImage(this, offsetX, offsetY, imageWidth, imageHeight);
 
-                // 清除画布
-                context.clearRect(0, 0, targetWidth, targetHeight);
+                    var blob = canvas.toDataURL('image/jpeg', 1.0);
 
-                // 图片压缩
-                context.drawImage(img, 0, 0, targetWidth, targetHeight);
+                    var blobs = toBlob(blob);
 
-                var blob = canvas.toDataURL('image/jpeg', 0.5);
+                    blobs.date = date;
 
-                //upImgBaseArr.push(blob);
+                    //将图片放入缓存中
+                    upImgArr.push(blobs);
 
-                var blobs = toBlob(blob);
+                    //上传TODO
+                    //upload(blob, date);
 
-                blobs.date = date;
+                    var $section = $("<span class='up-section fl loading ' data-date='" + date + "'>");
+                    imgContainer.prepend($section);
 
-                console.log(blobs);
+                    var $span = $("<span class='up-span'>");
+                    $span.appendTo($section);
 
-                //将图片放入缓存中
-                upImgArr.push(blobs);
+                    var $img0 = $("<img class='close-upimg'>").on("click",function(event){
+                        event.preventDefault();
+                        event.stopPropagation();
+                        $(".works-mask").show();
+                        delParent = $(this).parent();
+                    });
 
-                var $section = $("<span class='up-section fl loading ' data-date='" + date + "'>");
-                imgContainer.prepend($section);
+                    $img0.attr("src","img/a7.png").appendTo($section);
 
-                var $span = $("<span class='up-span'>");
-                $span.appendTo($section);
+                    var $img = $("<img class='up-img up-opcity' data-preview-src='' data-preview-group='1'>");
+                    $img.css("background",'url(' + blob + ')').css('background-size', 'cover');
+                    $img.appendTo($section);
 
-                var $img0 = $("<img class='close-upimg'>").on("click",function(event){
-                    event.preventDefault();
-                    event.stopPropagation();
-                    $(".works-mask").show();
-                    delParent = $(this).parent();
+                    var $p = $("<p class='img-name-p'>");
+                    $p.html(fileList[0].name).appendTo($section);
+
+                    var $input = $("<input id='taglocation' name='taglocation' value='' type='hidden'>");
+                    $input.appendTo($section);
+
+                    var $input2 = $("<input id='tags' name='tags' value='' type='hidden'/>");
+                    $input2.appendTo($section);
+
+                    setTimeout(function(){
+                        $(".up-section").removeClass("loading");
+                        $(".up-img").removeClass("up-opcity");
+                    }, 450);
+
+                    numUp = imgContainer.find(".up-section").length;
+
+                    if(numUp >= 8){
+                        $('.z_file').hide();
+                    }
+
+                    //input内容清空
+                    $(this).val("");
+
+                    initCss();
+
+                    initImg();
+
+                    console.log(upImgArr);
+
                 });
-
-                $img0.attr("src","img/a7.png").appendTo($section);
-
-                var $img = $("<img class='up-img up-opcity'>");
-                $img.css("background",'url(' + blob + ')').css('background-size', 'cover');
-                $img.appendTo($section);
-
-                var $p = $("<p class='img-name-p'>");
-                $p.html(fileList[0].name).appendTo($section);
-
-                var $input = $("<input id='taglocation' name='taglocation' value='' type='hidden'>");
-                $input.appendTo($section);
-
-                var $input2 = $("<input id='tags' name='tags' value='' type='hidden'/>");
-                $input2.appendTo($section);
-
-                setTimeout(function(){
-                    $(".up-section").removeClass("loading");
-                    $(".up-img").removeClass("up-opcity");
-                }, 450);
-
-                numUp = imgContainer.find(".up-section").length;
-
-                if(numUp >= 8){
-                    //$(this).parent().hide();
-                    $('.z_file').hide();
-                }
-
-                //input内容清空
-                $(this).val("");
-
-                initCss();
-
-                console.log(upImgArr);
 
             };
 
@@ -247,13 +315,18 @@ $(function () {
 
         var upSection = $('.up-section');
         var upSectionLength = upSection.length;
-        console.log(upSectionLength);
 
         if(upSectionLength === 0 || upSectionLength === 4){
             $('.z_photo .z_file').css('margin-left', '2px');
         }else{
             $('.z_photo .z_file').css('margin-left', '-8px');
         }
+    }
+
+    //mui图片预览
+    function initImg() {
+        //data-preview-src="" data-preview-group="1"
+        //mui.previewImage();
     }
 
     //上传图片方法
@@ -286,6 +359,40 @@ $(function () {
             },
             error:function (err) {
                 console.log(err);
+            }
+        });
+    }
+
+    function upload(base64, date) {
+        var blob = toBlob(base64);
+        var fd = new FormData();
+
+        fd.append('name', blob, date + '.jpg');
+
+        $.ajax({
+            async: false,
+            method: 'post',
+            processData : false,
+            contentType: false,
+            url: 'http://ngresume.com/home/upload/upload',
+            data: fd,
+            success:function (Data) {
+                mui.hideLoading();
+
+                // var src = (Data.data)[0];
+                // for(var i=0;i<($scope.upImgContainer).length;i++){
+                //     var arr = ($scope.upImgContainer)[i];
+                //     var arrDate = arr.date;
+                //     if(date === arrDate){
+                //         ($scope.upImgContainer)[i].src = src;
+                //     }
+                // }
+
+                //$scope.recentlyImg = src;
+
+            },
+            error:function (err) {
+                mui.hideLoading();
             }
         });
     }
